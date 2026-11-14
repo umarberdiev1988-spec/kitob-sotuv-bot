@@ -5,6 +5,8 @@ import telebot
 from telebot import types
 
 TOKEN = os.environ.get('BOT_TOKEN')
+ADMIN_ID = int(os.environ.get('699900814', '0'))  # Ўзингизнинг рақамли Telegram ID'ингиз
+
 bot = telebot.TeleBot(TOKEN)
 
 BOOK_LINK = "https://docs.google.com/document/d/1t-nOP2ymUKZsAWFz9OV9KPSvMO6zol7Js9YyqoOiD40/edit?usp=drivesdk"
@@ -33,14 +35,44 @@ def send_welcome(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     btn_book = types.InlineKeyboardButton("📖 Китобни ўқиш (Google Docs)", url=BOOK_LINK)
     btn_bonus = types.InlineKeyboardButton("📊 Бонус Жадвал (Google Sheets)", url=BONUS_SHEET_LINK)
-
     markup.add(btn_book, btn_bonus)
 
     bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
 
-@bot.message_handler(func=lambda message: True)
-def echo_all(message):
-    bot.reply_to(message, "Бот ишламоқда. Китоб ва бонус жадвални олиш учун /start буйруғини босинг.")
+@bot.message_handler(content_types=['photo', 'document', 'text'])
+def handle_messages(message):
+    if message.text and message.text.startswith('/'):
+        return
+
+    user = message.from_user
+    user_info = f"@{user.username}" if user.username else f"ID: {user.id}"
+
+    if ADMIN_ID != 0:
+        if message.content_type == 'photo':
+            bot.send_photo(
+                ADMIN_ID,
+                message.photo[-1].file_id,
+                caption=f"🧾 *Янги тўлов чеки / расм!*\nМижоз: {user.first_name} ({user_info})",
+                parse_mode='Markdown'
+            )
+            bot.reply_to(message, "✅ Тўлов чекингиз қабул қилинди! Тез орада текшириб тасдиқлаймиз.")
+        elif message.content_type == 'document':
+            bot.send_document(
+                ADMIN_ID,
+                message.document.file_id,
+                caption=f"📎 *Янги файл / чек!*\nМижоз: {user.first_name} ({user_info})",
+                parse_mode='Markdown'
+            )
+            bot.reply_to(message, "✅ Файлингиз қабул қилинди!")
+        else:
+            bot.send_message(
+                ADMIN_ID,
+                f"✉️ *Мижоздан хабар:*\nКимдан: {user.first_name} ({user_info})\nМатн: {message.text}",
+                parse_mode='Markdown'
+            )
+            bot.reply_to(message, "Хабарингиз қабул қилинди. Китоб ва бонусни олиш учун /start буйруғини босинг.")
+    else:
+        bot.reply_to(message, "Китоб ва бонус жадвални олиш учун /start буйруғини босинг.")
 
 if __name__ == '__main__':
     Thread(target=run_web, daemon=True).start()

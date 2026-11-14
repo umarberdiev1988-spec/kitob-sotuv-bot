@@ -18,20 +18,14 @@ BONUS_SHEET_LINK = "https://docs.google.com/spreadsheets/d/12t7vV5iAvazFr2n4-rg9
 
 app = Flask(__name__)
 
-
-@app.route('/')
-def index():
-  return 'OK', 200
-
-
-@app.route('/<path:subpath>')
-def fallback(subpath):
-  return 'OK', 200
-
+@app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD', 'POST'])
+@app.route('/<path:path>', methods=['GET', 'HEAD', 'POST'])
+def catch_all(path):
+    return "Bot is running!", 200
 
 def run_web():
-  port = int(os.environ.get('PORT', 10000))
-  app.run(host='0.0.0.0', port=port, use_reloader=False)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, use_reloader=False)
 
 def send_book_and_bonus(chat_id):
     text = (

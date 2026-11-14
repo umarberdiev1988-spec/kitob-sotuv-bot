@@ -16,15 +16,16 @@ bot = telebot.TeleBot(TOKEN)
 BOOK_LINK = "https://docs.google.com/document/d/1t-nOP2ymUKZsAWFz9OV9KPSvMO6zol7Js9YyqoOiD40/edit?usp=drivesdk"
 BONUS_SHEET_LINK = "https://docs.google.com/spreadsheets/d/12t7vV5iAvazFr2n4-rg9wIOUMFkXEp8sVaVXJEw2VVw/edit?usp=drivesdk"
 
-app = Flask('')
+app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Bot is running!"
+@app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD', 'POST'])
+@app.route('/<path:path>', methods=['GET', 'HEAD', 'POST'])
+def catch_all(path):
+    return "Bot is running!", 200
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, use_reloader=False)
 
 def send_book_and_bonus(chat_id):
     text = (
@@ -132,4 +133,4 @@ def handle_text(message):
 if __name__ == '__main__':
     Thread(target=run_web, daemon=True).start()
     print("Бот ва веб-сервер ишга тушди...")
-    bot.infinity_polling(none_stop=True)
+    bot.infinity_polling(timeout=20, long_polling_timeout=20)

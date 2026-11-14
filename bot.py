@@ -6,9 +6,9 @@ from telebot import types
 
 TOKEN = os.environ.get('BOT_TOKEN')
 ADMIN_ID = int(os.environ.get('ADMIN_ID', '0'))
-CARD_NUMBER = os.environ.get('CARD_NUMBER', '8600 0000 0000 0000')
+CARD_NUMBER = os.environ.get('CARD_NUMBER', '9860 0101 1982 2228')
 CARD_OWNER = os.environ.get('CARD_OWNER', 'Umar Berdiev')
-BOOK_PRICE = os.environ.get('BOOK_PRICE', '99 000 сўм')
+BOOK_PRICE = os.environ.get('BOOK_PRICE', '29 000 сўм')
 
 bot = telebot.TeleBot(TOKEN)
 

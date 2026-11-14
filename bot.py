@@ -1,136 +1,176 @@
 import os
-import html
+import threading
 from flask import Flask
-from threading import Thread
 import telebot
 from telebot import types
 
-TOKEN = os.environ.get('BOT_TOKEN')
-ADMIN_ID = int(os.environ.get('ADMIN_ID', '0'))
-CARD_NUMBER = os.environ.get('CARD_NUMBER', '9860010119822228')
-CARD_OWNER = os.environ.get('CARD_OWNER', 'Umar Berdiev')
-BOOK_PRICE = os.environ.get('BOOK_PRICE', '29000')
+# Environment Variables (Render'дан олинади)
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+ADMIN_ID = int(os.environ.get("ADMIN_ID", "0"))
+CARD_NUMBER = os.environ.get("CARD_NUMBER", "8600 0000 0000 0000")
+CARD_HOLDER = os.environ.get("CARD_HOLDER", "UMAR BERDIYEV")
+BOOK_PRICE = os.environ.get("BOOK_PRICE", "49 000 сўм")
 
-bot = telebot.TeleBot(TOKEN)
+# Китоб PDF файли ва бонус жадвал ҳаволаси
+BOOK_PDF_PATH = "Qogozbozlikdan_raqamli_tizimga_KITOB_2.pdf"
+BONUS_SHEET_URL = "https://docs.google.com/spreadsheets/d/12t7vV5iAvazFr2n4-rg9wIOUMFkXEp8sVaVXJEw2VVw/edit?usp=drivesdk"
 
-BOOK_LINK = "https://docs.google.com/document/d/1t-nOP2ymUKZsAWFz9OV9KPSvMO6zol7Js9YyqoOiD40/edit?usp=drivesdk"
-BONUS_SHEET_LINK = "https://docs.google.com/spreadsheets/d/12t7vV5iAvazFr2n4-rg9wIOUMFkXEp8sVaVXJEw2VVw/edit?usp=drivesdk"
-
+bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
-@app.route('/', defaults={'path': ''}, methods=['GET', 'HEAD', 'POST'])
-@app.route('/<path:path>', methods=['GET', 'HEAD', 'POST'])
+
+# Render ва UptimeRobot учун веб-сервер (200 OK)
+@app.route("/", defaults={"path": ""}, methods=["GET", "HEAD", "POST"])
+@app.route("/<path:path>", methods=["GET", "HEAD", "POST"])
 def catch_all(path):
     return "Bot is running!", 200
 
+
 def run_web():
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port, use_reloader=False)
+    app.run(host="0.0.0.0", port=port, use_reloader=False)
 
-def send_book_and_bonus(chat_id):
-    text = (
-        "🎉 <b>Тўловингиз тасдиқланди!</b>\n\n"
-        "📖 <b>«Қоғозбозликдан рақамли тизимларга»</b> амалий қўлланмаси ва бонус жадвалингиз тайёр.\n"
-        "Қуйидаги тугмалар орқали очиб, ўзингизнинг Google Drive'ингизга нусха олиб ишлатишингиз мумкин:"
-    )
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    btn_book = types.InlineKeyboardButton("📖 Китобни ўқиш (Google Docs)", url=BOOK_LINK)
-    btn_bonus = types.InlineKeyboardButton("📊 Бонус Жадвал (Google Sheets)", url=BONUS_SHEET_LINK)
-    markup.add(btn_book, btn_bonus)
-    bot.send_message(chat_id, text, reply_markup=markup, parse_mode='HTML')
 
-@bot.message_handler(commands=['start'])
+# 1. /start буйруғи
+@bot.message_handler(commands=["start"])
 def send_welcome(message):
-    safe_name = html.escape(message.from_user.first_name or "дўст")
-    safe_price = html.escape(BOOK_PRICE)
-    safe_card = html.escape(CARD_NUMBER)
-    safe_owner = html.escape(CARD_OWNER)
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_buy = types.InlineKeyboardButton("💳 Китобни харид қилиш", callback_data="buy_book")
+    btn_about = types.InlineKeyboardButton("📘 Китоб ҳақида маълумот", callback_data="about_book")
+    markup.add(btn_buy, btn_about)
 
-    welcome_text = (
-        f"Ассалому алайкум, {safe_name}!\n\n"
-        f"📖 <b>«Қоғозбозликдан рақамли тизимларга»</b> амалий қўлланмаси + бонус <b>«Молиявий Назорат Жадвали»</b> (Google Sheets).\n\n"
-        f"💰 <b>Нархи:</b> {safe_price}\n"
-        f"💳 <b>Тўлов учун карта:</b> <code>{safe_card}</code>\n"
-        f"👤 <b>Карта эгаси:</b> {safe_owner}\n\n"
-        f"Тўловни амалга оширгач, <b>чек расмини ёки PDF файлини</b> шу ботга юборинг. Текширилгандан сўнг китоб ва бонус жадвал шу ернинг ўзида очилади."
+    text = (
+        f"Ассалому алайкум, {message.from_user.first_name}! 👋\n\n"
+        "<b>«Қоғозбозликдан рақамли тизимга»</b> — кичик бизнесни 30 кунда "
+        "Google Sheets ва Telegram ёрдамида автоматлаштириш бўйича амалий қўлланма.\n\n"
+        f"💰 <b>Нархи:</b> {BOOK_PRICE}\n"
+        "🎁 <b>Бонус:</b> Тайёр «Молиявий Назорат ва Бошқарув Жадвали» шаблони!\n\n"
+        "Харид қилиш учун қуйидаги тугмани босинг:"
     )
+    bot.send_message(message.chat.id, text, parse_mode="HTML", reply_markup=markup)
 
-    bot.send_message(message.chat.id, welcome_text, parse_mode='HTML')
 
-@bot.message_handler(content_types=['photo', 'document'])
+# 2. Китоб ҳақида маълумот ва тўлов реквизитлари
+@bot.callback_query_handler(func=lambda call: call.data in ["about_book", "buy_book"])
+def handle_info_and_buy(call):
+    bot.answer_callback_query(call.id)
+
+    if call.data == "about_book":
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("💳 Китобни харид қилиш", callback_data="buy_book"))
+        info_text = (
+            "📘 <b>Қўлланма ичида нималар бор?</b>\n\n"
+            "• 7 та амалий боб ва Ўзбекистон бозоридаги реал кейслар;\n"
+            "• «Ақлли касса», Mini-CRM, Омбор ва KPI жадвал формулалари;\n"
+            "• Соат 21:00 да Telegram'га автоматик ҳисобот юборувчи скрипт;\n"
+            "• 30 кунлик трансформация харитаси ва тайёр бонус шаблон."
+        )
+        bot.send_message(call.message.chat.id, info_text, parse_mode="HTML", reply_markup=markup)
+
+    elif call.data == "buy_book":
+        pay_text = (
+            "💳 <b>Тўлов маълумотлари:</b>\n\n"
+            f"Карта рақами: <code>{CARD_NUMBER}</code>\n"
+            f"Карта эгаси: <b>{CARD_HOLDER}</b>\n"
+            f"Тўлов суммаси: <b>{BOOK_PRICE}</b>\n\n"
+            "📸 Тўловни амалга оширгач, <b>чек расмини ёки PDF-квитанциясини</b> "
+            "шу ботга юборинг. Админ тасдиқлаши билан китоб ва бонус жадвал автоматик юборилади."
+        )
+        bot.send_message(call.message.chat.id, pay_text, parse_mode="HTML")
+
+
+# 3. Мижоздан чек қабул қилиш (расм ёки PDF/ҳужжат)
+@bot.message_handler(content_types=["photo", "document"])
 def handle_receipt(message):
     user = message.from_user
-    safe_first = html.escape(user.first_name or "Фойдаланувчи")
-    user_info = f"@{html.escape(user.username)}" if user.username else f"ID: {user.id}"
-
-    if ADMIN_ID == 0:
-        bot.reply_to(message, "Админ созламаси ҳали якунланмаган. Кейинроқ уриниб кўринг.")
-        return
-
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    btn_approve = types.InlineKeyboardButton("✅ Тасдиқлаш", callback_data=f"approve:{user.id}")
-    btn_reject = types.InlineKeyboardButton("❌ Рад этиш", callback_data=f"reject:{user.id}")
-    markup.add(btn_approve, btn_reject)
+    username = f"@{user.username}" if user.username else "Йўқ"
 
     caption = (
-        f"🧾 <b>Янги тўлов чеки!</b>\n"
-        f"Мижоз: {safe_first} ({user_info})\n"
-        f"ID: <code>{user.id}</code>"
+        "🧾 <b>Янги тўлов чеки келди!</b>\n\n"
+        f"👤 Мижоз: {user.first_name} (ID: <code>{user.id}</code>)\n"
+        f"🔗 Username: {username}"
     )
 
-    if message.content_type == 'photo':
-        bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=caption, reply_markup=markup, parse_mode='HTML')
+    admin_markup = types.InlineKeyboardMarkup(row_width=2)
+    btn_approve = types.InlineKeyboardButton("✅ Тасдиқлаш", callback_data=f"approve_{user.id}")
+    btn_reject = types.InlineKeyboardButton("❌ Рад этиш", callback_data=f"reject_{user.id}")
+    admin_markup.add(btn_approve, btn_reject)
+
+    if message.content_type == "photo":
+        file_id = message.photo[-1].file_id
+        bot.send_photo(ADMIN_ID, file_id, caption=caption, parse_mode="HTML", reply_markup=admin_markup)
     else:
-        bot.send_document(ADMIN_ID, message.document.file_id, caption=caption, reply_markup=markup, parse_mode='HTML')
+        file_id = message.document.file_id
+        bot.send_document(ADMIN_ID, file_id, caption=caption, parse_mode="HTML", reply_markup=admin_markup)
 
-    bot.reply_to(message, "⏳ Чекингиз қабул қилинди! Текширувдан сўнг китоб ва бонус ҳаволалари юборилади.")
+    bot.reply_to(
+        message,
+        "✅ Чекингиз қабул қилинди ва текшириш учун админга юборилди.\n"
+        "Тасдиқлангач, китоб шу ерга юборилади. Илтимос, бироз кутинг."
+    )
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve:", "reject:")))
+
+# 4. Админ томонидан тасдиқлаш ёки рад этиш
+@bot.callback_query_handler(func=lambda call: call.data.startswith(("approve_", "reject_")))
 def handle_admin_decision(call):
     if call.from_user.id != ADMIN_ID:
-        bot.answer_callback_query(call.id, "Бу амал фақат админ учун.", show_alert=True)
+        bot.answer_callback_query(call.id, "⛔ Бу тугма фақат админ учун!", show_alert=True)
         return
 
-    action, target_id_str = call.data.split(":", 1)
-    target_id = int(target_id_str)
+    action, user_id_str = call.data.split("_", 1)
+    target_user_id = int(user_id_str)
 
     if action == "approve":
-        send_book_and_bonus(target_id)
-        bot.answer_callback_query(call.id, "Тасдиқланди ва мижозга юборилди!")
-        new_caption = (call.message.caption or "") + "\n\n✅ <b>ТАСДИҚЛАНДИ</b>"
-    else:
-        bot.send_message(
-            target_id,
-            "❌ Тўлов чеки тасдиқланмади. Илтимос, чекни қайта юборинг ёки савол бўлса шу ерга ёзинг."
+        if not os.path.exists(BOOK_PDF_PATH):
+            bot.answer_callback_query(call.id, "⚠️ PDF файл топилмади!", show_alert=True)
+            bot.send_message(ADMIN_ID, f"❌ Хатолик: <code>{BOOK_PDF_PATH}</code> файли GitHub репозиторияда топилмади.", parse_mode="HTML")
+            return
+
+        bonus_markup = types.InlineKeyboardMarkup()
+        bonus_markup.add(
+            types.InlineKeyboardButton("📊 Молиявий Назорат Жадвали (Бонус)", url=BONUS_SHEET_URL)
         )
-        bot.answer_callback_query(call.id, "Рад этилди.")
-        new_caption = (call.message.caption or "") + "\n\n❌ <b>РАД ЭТИЛДИ</b>"
 
-    try:
-        if call.message.content_type in ('photo', 'document'):
-            bot.edit_message_caption(chat_id=call.message.chat.id, message_id=call.message.message_id, caption=new_caption, parse_mode='HTML')
-    except Exception:
-        pass
-
-@bot.message_handler(func=lambda message: True)
-def handle_text(message):
-    if message.text and message.text.startswith('/'):
-        return
-
-    user = message.from_user
-    safe_first = html.escape(user.first_name or "Фойдаланувчи")
-    user_info = f"@{html.escape(user.username)}" if user.username else f"ID: {user.id}"
-    safe_text = html.escape(message.text or "")
-
-    if ADMIN_ID != 0 and message.from_user.id != ADMIN_ID:
-        bot.send_message(
-            ADMIN_ID,
-            f"✉️ <b>Мижоздан хабар:</b>\nКимдан: {safe_first} ({user_info})\nМатн: {safe_text}",
-            parse_mode='HTML'
+        success_caption = (
+            "🎉 <b>Тўловингиз тасдиқланди! Харидингиз учун раҳмат!</b>\n\n"
+            "📘 Юқоридаги PDF файл — <b>«Қоғозбозликдан рақамли тизимга»</b> тўлиқ қўлланмаси (25 саҳифа).\n"
+            "🎁 Китоб охирида ва қуйидаги тугма орқали тайёр <b>Google Sheets бонус жадвалини</b> очиб, "
+            "<i>Файл → Нусха яратиш</i> орқали ўзингизга сақлаб олишингиз мумкин:"
         )
-    bot.reply_to(message, "Тўлов маълумотларини кўриш учун /start буйруғини босинг ёки чек расмини ёки PDF файлини юборинг.")
 
-if __name__ == '__main__':
-    Thread(target=run_web, daemon=True).start()
+        with open(BOOK_PDF_PATH, "rb") as pdf_file:
+            bot.send_document(
+                target_user_id,
+                pdf_file,
+                caption=success_caption,
+                parse_mode="HTML",
+                reply_markup=bonus_markup
+            )
+
+        bot.answer_callback_query(call.id, "✅ Китоб мижозга юборилди!")
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            caption=call.message.caption + "\n\n✅ <b>ТАСДИҚЛАНДИ (Китоб юборилди)</b>",
+            parse_mode="HTML"
+        )
+
+    elif action == "reject":
+        bot.send_message(
+            target_user_id,
+            "❌ Юборилган чек тасдиқланмади. Илтимос, тўлов маълумотларини текшириб, "
+            "чекни қайта юборинг ёки админ билан боғланинг."
+        )
+        bot.answer_callback_query(call.id, "❌ Рад этилди!")
+        bot.edit_message_caption(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            caption=call.message.caption + "\n\n❌ <b>РАД ЭТИЛДИ</b>",
+            parse_mode="HTML"
+        )
+
+
+if __name__ == "__main__":
     print("Бот ва веб-сервер ишга тушди...")
-    bot.infinity_polling(timeout=20, long_polling_timeout=20)
+    threading.Thread(target=run_web, daemon=True).start()
+    bot.infinity_polling(skip_pending=True)

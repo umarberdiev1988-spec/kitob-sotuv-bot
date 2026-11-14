@@ -1,14 +1,24 @@
 import os
+from flask import Flask
+from threading import Thread
 import telebot
 from telebot import types
 
-# BotFather'дан олган TOKEN'ингизни Render'да BOT_TOKEN орқали ёки шу ерга ёзасиз
-TOKEN = os.environ.get('BOT_TOKEN', 'TOKENINGIZNI_SHU_YERGA_YOZING')
+TOKEN = os.environ.get('BOT_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-# Китоб ва бонус Google Sheets ҳаволалари
 BOOK_LINK = "https://docs.google.com/document/d/1t-nOP2ymUKZsAWFz9OV9KPSvMO6zol7Js9YyqoOiD40/edit?usp=drivesdk"
 BONUS_SHEET_LINK = "https://docs.google.com/spreadsheets/d/12t7vV5iAvazFr2n4-rg9wIOUMFkXEp8sVaVXJEw2VVw/edit?usp=drivesdk"
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -16,7 +26,7 @@ def send_welcome(message):
 
     welcome_text = (
         f"Ассалому алайкум, {user_name}!\n\n"
-        f"📖 *«Қоғозбозликдан рақамли тизимларга»* китоби ва унинг бонусли электрон жадвалини сотиб олганингиз учун раҳмат!\n\n"
+        f"📖 *«Қоғозбозликдан рақамли тизимларга»* китоби ва бонус жадвалини танлаганингиз учун раҳмат!\n\n"
         f"Қуйидаги тугмалар орқали китоб ва бонус файлни очишингиз ва Google Drive'га нусха қилиб ишлашингиз мумкин:"
     )
 
@@ -30,8 +40,9 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
-    bot.reply_to(message, "Бот фаолият кўрсатмоқда. Китобни олиш учун /start буйруғини босинг.")
+    bot.reply_to(message, "Бот ишламоқда. Китоб ва бонус жадвални олиш учун /start буйруғини босинг.")
 
 if __name__ == '__main__':
-    print("Бот ишга тушди...")
-    bot.infinity_polling()
+    Thread(target=run_web, daemon=True).start()
+    print("Бот ва веб-сервер ишга тушди...")
+    bot.infinity_polling(none_stop=True)
